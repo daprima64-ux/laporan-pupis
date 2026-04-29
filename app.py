@@ -15,7 +15,7 @@ menu_minuman = {"Lemon Tea": 8000, "Matcha Drink": 10000, "Gula Aren Drink": 100
 menu_topping = {"Tanpa Topping": 0, "Gula Aren": 2000, "Keju": 2000, "Oreo": 2000, "Kacang Almond": 2000, "Coco Chip": 2000}
 rasa_pisang = ["Original", "Coklat", "Tiramisu", "Taro", "Stroberi", "Cappucino", "Matcha"]
 
-st.title("📊 Sistem Laporan Kedai (Auto-Save)")
+st.title("📊 Sistem Laporan Dapur Pupis")
 
 tab_input, tab_laporan = st.tabs(["📥 Input Data", "📋 Lihat Database Sheets"])
 
@@ -27,33 +27,48 @@ with tab_input:
         if kat == "Makanan":
             item = st.selectbox("Menu", list(menu_makanan.keys()))
             if item == "Pisang Wijen":
-                r, t = st.selectbox("Rasa", rasa_pisang), st.selectbox("Topping", list(menu_topping.keys()))
+                r = st.selectbox("Rasa", rasa_pisang)
+                t = st.selectbox("Topping", list(menu_topping.keys()))
                 nama_f, harga_f = f"{item} ({r}) + {t}", menu_makanan[item] + menu_topping[t]
-            else: nama_f, harga_f = item, menu_makanan[item]
+            else: 
+                nama_f, harga_f = item, menu_makanan[item]
         else:
             item = st.selectbox("Menu", list(menu_minuman.keys()))
             nama_f, harga_f = item, menu_minuman[item]
         
-        qty = st.number_input("Qty", min_value=1)
+        qty = st.number_input("Qty", min_value=1, key="qty_jual")
+        
         if st.button("Simpan Penjualan ✅", use_container_width=True):
-            new_data = pd.DataFrame([{"Waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "Item": nama_f, "Qty": qty, "Total": harga_f * qty}])
-            # AMBIL DATA LAMA DAN GABUNG
-            old_data = conn.read(worksheet="Penjualan")
-            updated_df = pd.concat([old_data, new_data], ignore_index=True)
-            conn.update(worksheet="Penjualan", data=updated_df)
-            st.success("Tersimpan di Google Sheets!")
+            try:
+                new_data = pd.DataFrame([{"Waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "Item": nama_f, "Qty": qty, "Total": harga_f * qty}])
+                old_data = conn.read(worksheet="Penjualan", ttl=0)
+                updated_df = pd.concat([old_data, new_data], ignore_index=True)
+                conn.update(worksheet="Penjualan", data=updated_df)
+                st.success(f"Tersimpan: {nama_f}")
+                st.balloons()
+            except Exception as e:
+                st.error("Gagal simpan: Pastikan nama tab di Sheets adalah 'Penjualan' (P Besar)")
 
     with col2:
         st.subheader("💸 Belanja")
-        brg = st.text_input("Barang")
-        hrg_b = st.number_input("Harga", min_value=0)
+        # Sesuaikan dengan nama kolom di Sheets: Waktu, Keterangan, Total
+        ket = st.text_input("Keterangan Barang")
+        hrg_b = st.number_input("Harga", min_value=0, key="hrg_belanja")
+        
         if st.button("Simpan Pengeluaran ❌", use_container_width=True):
-            new_spend = pd.DataFrame([{"Waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "Barang": brg, "Total": hrg_b}])
-            old_spend = conn.read(worksheet="Pengeluaran")
-            updated_spend = pd.concat([old_spend, new_spend], ignore_index=True)
-            conn.update(worksheet="Pengeluaran", data=updated_spend)
-            st.warning("Pengeluaran tercatat di Sheets!")
+            try:
+                new_spend = pd.DataFrame([{"Waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "Keterangan": ket, "Total": hrg_b}])
+                old_spend = conn.read(worksheet="Pengeluaran", ttl=0)
+                updated_spend = pd.concat([old_spend, new_spend], ignore_index=True)
+                conn.update(worksheet="Pengeluaran", data=updated_spend)
+                st.warning(f"Pengeluaran '{ket}' tercatat!")
+            except Exception as e:
+                st.error("Gagal simpan: Pastikan nama tab di Sheets adalah 'Pengeluaran' (P Besar)")
 
 with tab_laporan:
     st.write("Data Penjualan Terkini:")
-    st.dataframe(conn.read(worksheet="Penjualan"), use_container_width=True)
+    try:
+        data_view = conn.read(worksheet="Penjualan", ttl=0)
+        st.dataframe(data_view, use_container_width=True)
+    except:
+        st.info("Menunggu koneksi ke spreadsheet...")
