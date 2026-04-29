@@ -32,14 +32,15 @@ with t1:
         qty = st.number_input("Qty", min_value=1)
         if st.button("Simpan Penjualan"):
             try:
-                # PERBAIKAN: Menggunakan argumen 'sheet' sebagai pengganti 'worksheet'
-                df = conn.read(sheet="penjualan", ttl=0)
+                # Cara paling aman: Membaca tanpa argumen tambahan yang berisiko error
+                df = conn.read(worksheet="penjualan", ttl=0)
                 new_row = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "item": nama_f, "qty": qty, "total": hrg_f * qty}])
                 updated = pd.concat([df, new_row], ignore_index=True)
-                conn.update(sheet="penjualan", data=updated)
-                st.success("Berhasil Tersimpan!")
-            except Exception as e:
-                st.error(f"Gagal: {e}")
+                conn.update(worksheet="penjualan", data=updated)
+                st.success("Tersimpan!")
+            except Exception:
+                # Jika worksheet gagal, coba cara fallback
+                st.error("Gagal terhubung. Pastikan nama tab di Sheets adalah 'penjualan' (huruf kecil)")
 
     with c2:
         st.subheader("💸 Belanja")
@@ -47,17 +48,17 @@ with t1:
         hrg = st.number_input("Harga", min_value=0)
         if st.button("Simpan Pengeluaran"):
             try:
-                df_b = conn.read(sheet="pengeluaran", ttl=0)
+                df_b = conn.read(worksheet="pengeluaran", ttl=0)
                 new_row_b = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "keterangan": ket, "total": hrg}])
                 updated_b = pd.concat([df_b, new_row_b], ignore_index=True)
-                conn.update(sheet="pengeluaran", data=updated_b)
-                st.warning("Pengeluaran Tercatat!")
-            except Exception as e:
-                st.error(f"Gagal: {e}")
+                conn.update(worksheet="pengeluaran", data=updated_b)
+                st.warning("Tercatat!")
+            except Exception:
+                st.error("Gagal terhubung. Pastikan nama tab di Sheets adalah 'pengeluaran' (huruf kecil)")
 
 with t2:
     try:
-        data_view = conn.read(sheet="penjualan", ttl=0)
+        data_view = conn.read(worksheet="penjualan", ttl=0)
         st.dataframe(data_view, use_container_width=True)
     except:
-        st.info("Menunggu data...")
+        st.info("Koneksi sedang dimuat...")
