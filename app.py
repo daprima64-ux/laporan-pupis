@@ -3,103 +3,59 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Sistem Laporan Dapur Pupis", layout="wide")
+st.set_page_config(page_title="Laporan Dapur Pupis", layout="wide")
 
-# --- KONEKSI GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- DATA MENU LENGKAP ---
-menu_makanan = {
-    "Pisang Wijen": 15000, 
-    "Hekeng KW": 15000, 
-    "Pempek Menul": 15000, 
-    "Ayam Pop Sambal Matah": 18000, 
-    "Nasi Telor Sambal Matah": 15000, 
-    "Mie Ayam Sambal Matah": 18000
-}
-menu_minuman = {
-    "Lemon Tea": 8000, 
-    "Matcha Drink": 10000, 
-    "Gula Aren Drink": 10000, 
-    "Tiramisu Drink": 10000, 
-    "Coklat Drink": 10000, 
-    "Sunny Milkult": 15000, 
-    "Greeny Milkult": 15000
-}
+# Menu Dapur Pupis
+menu_makanan = {"Pisang Wijen": 15000, "Hekeng KW": 15000, "Pempek Menul": 15000, "Ayam Pop Sambal Matah": 18000, "Nasi Telor Sambal Matah": 15000, "Mie Ayam Sambal Matah": 18000}
+menu_minuman = {"Lemon Tea": 8000, "Matcha Drink": 10000, "Gula Aren Drink": 10000, "Tiramisu Drink": 10000, "Coklat Drink": 10000, "Sunny Milkult": 15000, "Greeny Milkult": 15000}
 menu_topping = {"Tanpa Topping": 0, "Gula Aren": 2000, "Keju": 2000, "Oreo": 2000, "Kacang Almond": 2000, "Coco Chip": 2000}
 rasa_pisang = ["Original", "Coklat", "Tiramisu", "Taro", "Stroberi", "Cappucino", "Matcha"]
 
 st.title("📊 Sistem Laporan Dapur Pupis")
 
-tab1, tab2 = st.tabs(["📥 Input Data", "📋 Lihat Database"])
+t1, t2 = st.tabs(["📥 Input", "📋 Database"])
 
-with tab1:
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🛒 Input Penjualan")
+with t1:
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("🛒 Jual")
         kat = st.radio("Kategori", ["Makanan", "Minuman"], horizontal=True)
-        
-        if kat == "Makanan":
-            item = st.selectbox("Menu Makanan", list(menu_makanan.keys()))
-            if item == "Pisang Wijen":
-                r = st.selectbox("Pilih Rasa", rasa_pisang)
-                t = st.selectbox("Pilih Topping", list(menu_topping.keys()))
-                nama_final = f"{item} ({r}) + {t}"
-                harga_satuan = menu_makanan[item] + menu_topping[t]
-            else:
-                nama_final = item
-                harga_satuan = menu_makanan[item]
+        item = st.selectbox("Menu", list(menu_makanan.keys()) if kat == "Makanan" else list(menu_minuman.keys()))
+        if kat == "Makanan" and item == "Pisang Wijen":
+            r, t = st.selectbox("Rasa", rasa_pisang), st.selectbox("Topping", list(menu_topping.keys()))
+            nama_f, hrg_f = f"{item} ({r}) + {t}", menu_makanan[item] + menu_topping[t]
         else:
-            item = st.selectbox("Menu Minuman", list(menu_minuman.keys()))
-            nama_final = item
-            harga_satuan = menu_minuman[item]
-            
-        qty = st.number_input("Jumlah (Qty)", min_value=1, step=1)
-        total_harga = harga_satuan * qty
-        st.info(f"Total: Rp {total_harga:,}")
-
-        if st.button("Simpan Penjualan ✅", use_container_width=True):
-            try:
-                # Menggunakan perintah read paling dasar untuk menghindari Error 400
-                existing_data = conn.read(worksheet="penjualan", ttl=0)
-                new_data = pd.DataFrame([{
-                    "waktu": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "item": nama_final,
-                    "qty": qty,
-                    "total": total_harga
-                }])
-                updated_df = pd.concat([existing_data, new_data], ignore_index=True)
-                conn.update(worksheet="penjualan", data=updated_df)
-                st.success(f"Berhasil simpan: {nama_final}")
-                st.balloons()
-            except Exception as e:
-                st.error(f"Koneksi Gagal: Pastikan link di Secrets benar dan nama tab adalah 'penjualan'")
-
-    with col2:
-        st.subheader("💸 Input Pengeluaran")
-        ket = st.text_input("Keterangan Belanja")
-        nominal = st.number_input("Nominal Harga (Rp)", min_value=0, step=1000)
+            nama_f, hrg_f = item, (menu_makanan[item] if kat == "Makanan" else menu_minuman[item])
         
-        if st.button("Simpan Pengeluaran ❌", use_container_width=True):
+        qty = st.number_input("Qty", min_value=1)
+        if st.button("Simpan Penjualan ✅"):
             try:
-                existing_spend = conn.read(worksheet="pengeluaran", ttl=0)
-                new_spend = pd.DataFrame([{
-                    "waktu": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "keterangan": ket,
-                    "total": nominal
-                }])
-                updated_spend = pd.concat([existing_spend, new_spend], ignore_index=True)
-                conn.update(worksheet="pengeluaran", data=updated_spend)
-                st.warning(f"Pengeluaran '{ket}' tercatat!")
+                df = conn.read(worksheet="penjualan", ttl=0)
+                new_row = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "item": nama_f, "qty": qty, "total": hrg_f * qty}])
+                updated = pd.concat([df, new_row], ignore_index=True)
+                conn.update(worksheet="penjualan", data=updated)
+                st.success("Tersimpan!")
             except Exception as e:
-                st.error(f"Gagal simpan: Pastikan nama tab adalah 'pengeluaran'")
+                st.error("Gagal! Pastikan spasi di nama tab Google Sheets sudah dihapus.")
 
-with tab2:
-    st.subheader("Data Penjualan Terkini")
+    with c2:
+        st.subheader("💸 Belanja")
+        ket = st.text_input("Keterangan")
+        hrg = st.number_input("Harga", min_value=0)
+        if st.button("Simpan Pengeluaran ❌"):
+            try:
+                df_b = conn.read(worksheet="pengeluaran", ttl=0)
+                new_row_b = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "keterangan": ket, "total": hrg}])
+                updated_b = pd.concat([df_b, new_row_b], ignore_index=True)
+                conn.update(worksheet="pengeluaran", data=updated_b)
+                st.warning("Tercatat!")
+            except:
+                st.error("Cek nama tab 'pengeluaran'")
+
+with t2:
     try:
-        df_view = conn.read(worksheet="penjualan", ttl=0)
-        st.dataframe(df_view, use_container_width=True)
+        st.dataframe(conn.read(worksheet="penjualan", ttl=0), use_container_width=True)
     except:
-        st.info("Menghubungkan ke Google Sheets...")
+        st.info("Menunggu data...")
