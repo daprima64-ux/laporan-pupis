@@ -3,12 +3,11 @@ import pandas as pd
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-st.set_page_config(page_title="Kedai Laporan Keuangan", layout="wide")
+st.set_page_config(page_title="Laporan Dapur Pupis", layout="wide")
 
-# KONEKSI
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# DATA MENU
+# Menu
 menu_makanan = {"Pisang Wijen": 15000, "Hekeng KW": 15000, "Pempek Menul": 15000, "Ayam Pop Sambal Matah": 18000, "Nasi Telor Sambal Matah": 15000, "Mie Ayam Sambal Matah": 18000}
 menu_minuman = {"Lemon Tea": 8000, "Matcha Drink": 10000, "Gula Aren Drink": 10000, "Tiramisu Drink": 10000, "Coklat Drink": 10000, "Sunny Milkult": 15000, "Greeny Milkult": 15000}
 menu_topping = {"Tanpa Topping": 0, "Gula Aren": 2000, "Keju": 2000, "Oreo": 2000, "Kacang Almond": 2000, "Coco Chip": 2000}
@@ -16,48 +15,44 @@ rasa_pisang = ["Original", "Coklat", "Tiramisu", "Taro", "Stroberi", "Cappucino"
 
 st.title("📊 Sistem Laporan Dapur Pupis")
 
-tab_input, tab_laporan = st.tabs(["📥 Input Data", "📋 Lihat Database"])
+t1, t2 = st.tabs(["📥 Input", "📋 Database"])
 
-with tab_input:
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("🛒 Jual")
+with t1:
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("🛒 penjualan")
         kat = st.radio("Kategori", ["Makanan", "Minuman"], horizontal=True)
         item = st.selectbox("Menu", list(menu_makanan.keys()) if kat == "Makanan" else list(menu_minuman.keys()))
-        
         if kat == "Makanan" and item == "Pisang Wijen":
             r, t = st.selectbox("Rasa", rasa_pisang), st.selectbox("Topping", list(menu_topping.keys()))
-            nama_f, harga_f = f"{item} ({r}) + {t}", menu_makanan[item] + menu_topping[t]
+            nama_f, hrg_f = f"{item} ({r}) + {t}", menu_makanan[item] + menu_topping[t]
         else:
-            nama_f, harga_f = item, menu_makanan[item] if kat == "Makanan" else menu_minuman[item]
+            nama_f, hrg_f = item, menu_makanan[item] if kat == "Makanan" else menu_minuman[item]
         
-        qty = st.number_input("Qty", min_value=1, key="q_jual")
-        if st.button("Simpan Penjualan ✅"):
+        qty = st.number_input("Qty", min_value=1)
+        if st.button("Simpan Penjualan"):
             try:
-                new_row = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "item": nama_f, "qty": qty, "total": harga_f * qty}])
                 df = conn.read(worksheet="penjualan", ttl=0)
+                new_row = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "item": nama_f, "qty": qty, "total": hrg_f * qty}])
                 updated = pd.concat([df, new_row], ignore_index=True)
                 conn.update(worksheet="penjualan", data=updated)
-                st.success("Berhasil!")
-            except:
-                st.error("Cek nama tab: 'penjualan' (huruf kecil)")
+                st.success("Tersimpan!")
+            except Exception as e: st.error(f"Error: {e}")
 
-    with col2:
-        st.subheader("💸 Belanja")
+    with c2:
+        st.subheader("💸 pengeluaran")
         ket = st.text_input("Keterangan")
         hrg = st.number_input("Harga", min_value=0)
-        if st.button("Simpan Pengeluaran ❌"):
+        if st.button("Simpan Pengeluaran"):
             try:
-                new_row = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "keterangan": ket, "total": hrg}])
-                df = conn.read(worksheet="pengeluaran", ttl=0)
-                updated = pd.concat([df, new_row], ignore_index=True)
-                conn.update(worksheet="pengeluaran", data=updated)
+                df_b = conn.read(worksheet="pengeluaran", ttl=0)
+                new_row_b = pd.DataFrame([{"waktu": datetime.now().strftime("%Y-%m-%d %H:%M"), "keterangan": ket, "total": hrg}])
+                updated_b = pd.concat([df_b, new_row_b], ignore_index=True)
+                conn.update(worksheet="pengeluaran", data=updated_b)
                 st.warning("Tercatat!")
-            except:
-                st.error("Cek nama tab: 'pengeluaran' (huruf kecil)")
+            except Exception as e: st.error(f"Error: {e}")
 
-with tab_laporan:
+with t2:
     try:
         st.dataframe(conn.read(worksheet="penjualan", ttl=0), use_container_width=True)
-    except:
-        st.info("Koneksi menunggu...")
+    except: st.info("Memuat data...")
